@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>虚拟资产自动兑换系统演示</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#10B981',
+                        accent: '#8B5CF6',
+                        neutral: '#1F2937',
+                        'neutral-light': '#F3F4F6',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .shadow-card {
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            }
+            .transition-card {
+                transition: all 0.3s ease;
+            }
+            .hover-scale {
+                transition: transform 0.3s ease;
+            }
+            .hover-scale:hover {
+                transform: scale(1.02);
+            }
+            .gradient-bg {
+                background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans">
+    <!-- 导航栏 -->
+    <nav class="bg-white shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 flex items-center">
+                        <i class="fa fa-exchange text-primary text-2xl mr-2"></i>
+                        <span class="text-xl font-bold text-neutral">虚拟资产自动兑换系统</span>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <button id="run-simulation" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-md shadow-md transition-all duration-300 flex items-center">
+                        <i class="fa fa-play mr-2"></i>
+                        <span>运行模拟</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主内容区 -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- 用户资产信息 -->
+        <section class="mb-8">
+            <div class="bg-white rounded-xl shadow-card p-6 hover-scale">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-neutral mb-2">用户资产概览</h2>
+                        <p class="text-gray-600">当前积分余额: <span id="point-balance" class="font-semibold text-primary">3000</span> 积分</p>
+                    </div>
+                    <div class="mt-4 md:mt-0 bg-neutral-light rounded-lg p-4 w-full md:w-auto">
+                        <div class="flex items-center">
+                            <div class="bg-primary/10 p-3 rounded-full mr-3">
+                                <i class="fa fa-clock-o text-primary text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">最近更新</p>
+                                <p id="last-update" class="font-medium text-neutral">2024-10-01 12:00:00</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border-l-4 border-primary">
+                        <div class="flex items-center">
+                            <div class="bg-primary/10 p-2 rounded-full mr-3">
+                                <i class="fa fa-trophy text-primary"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">高价值权益</p>
+                                <p id="high-value-count" class="font-bold text-xl text-neutral">8</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gradient-to-r from-green-50 to-teal-50 rounded-lg p-4 border-l-4 border-secondary">
+                        <div class="flex items-center">
+                            <div class="bg-secondary/10 p-2 rounded-full mr-3">
+                                <i class="fa fa-bolt text-secondary"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">即将过期</p>
+                                <p id="expiring-count" class="font-bold text-xl text-neutral">5</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 border-l-4 border-accent">
+                        <div class="flex items-center">
+                            <div class="bg-accent/10 p-2 rounded-full mr-3">
+                                <i class="fa fa-line-chart text-accent"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">兑换效率</p>
+                                <p id="exchange-efficiency" class="font-bold text-xl text-neutral">75%</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 权益池展示 -->
+        <section class="mb-8">
+            <div class="bg-white rounded-xl shadow-card p-6 hover-scale">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+                    <div>
+                        <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-neutral mb-2">平台权益池</h2>
+                        <p class="text-gray-600">共 <span id="total-benefits" class="font-semibold text-primary">40</span> 个可兑换权益</p>
+                    </div>
+                    <div class="mt-4 md:mt-0 flex space-x-2">
+                        <div class="relative">
+                            <input type="text" id="benefit-search" placeholder="搜索权益..." class="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all">
+                            <i class="fa fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        </div>
+                        <select id="benefit-filter" class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all">
+                            <option value="all">全部权益</option>
+                            <option value="high-value">高价值</option>
+                            <option value="expiring">即将过期</option>
+                            <option value="recommended">推荐兑换</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">权益ID</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">权益名称</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类型</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">价值评分</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">所需积分</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">库存</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">剩余天数</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">兑换概率</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="benefits-table" class="bg-white divide-y divide-gray-200">
+                            <!-- 权益数据将通过JavaScript动态生成 -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="mt-6 flex justify-between items-center">
+                    <div class="text-sm text-gray-500">
+                        显示 <span id="showing-range">1-10</span> 条，共 <span id="total-count">40</span> 条
+                    </div>
+                    <div class="flex space-x-2">
+                        <button class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" id="prev-page">
+                            <i class="fa fa-chevron-left"></i>
+                        </button>
+                        <button class="px-4 py-2 border border-gray-300 rounded-md bg-primary text-white hover:bg-primary/90" id="next-page">
+                            <i class="fa fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 决策分析 -->
+        <section class="mb-8">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="bg-white rounded-xl shadow-card p-6 hover-scale lg:col-span-2">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-bold text-neutral">决策模型分析</h2>
+                        <div class="flex space-x-2">
+                            <button class="px-3 py-1 text-xs rounded-md bg-primary/10 text-primary">DQN</button>
+                            <button class="px-3 py-1 text-xs rounded-md bg-secondary/10 text-secondary">PPO</button>
+                            <button class="px-3 py-1 text-xs rounded-md bg-accent/10 text-accent">融合策略</button>
+                        </div>
+                    </div>
+                    <div class="h-80">
+                        <canvas id="decision-chart"></canvas>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-card p-6 hover-scale">
+                    <h2 class="text-xl font-bold text-neutral mb-6">最优兑换策略</h2>
+                    <div id="optimal-strategy" class="bg-neutral-light rounded-lg p-4 mb-4">
+                        <div class="text-center py-8">
+                            <i class="fa fa-play-circle-o text-gray-300 text-5xl mb-4"></i>
+                            <p class="text-gray-500">点击"运行模拟"生成最优策略</p>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="flex items-center">
+                            <div class="bg-primary/10 p-2 rounded-full mr-3">
+                                <i class="fa fa-calculator text-primary"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">模型类型</p>
+                                <p id="model-type" class="font-medium text-neutral">DQN+PPO融合</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="bg-secondary/10 p-2 rounded-full mr-3">
+                                <i class="fa fa-balance-scale text-secondary"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">决策权重</p>
+                                <p id="model-weight" class="font-medium text-neutral">DQN: 40%, PPO: 60%</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="bg-accent/10 p-2 rounded-full mr-3">
+                                <i class="fa fa-line-chart text-accent"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">预期收益</p>
+                                <p id="expected-return" class="font-medium text-neutral">125元</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 执行记录 -->
+        <section>
+            <div class="bg-white rounded-xl shadow-card p-6 hover-scale">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold text-neutral">兑换执行记录</h2>
+                    <button id="clear-history" class="text-sm text-gray-500 hover:text-red-500 transition-colors">
+                        <i class="fa fa-trash-o mr-1"></i> 清空记录
+                    </button>
+                </div>
+                <div id="execution-history" class="space-y-4">
+                    <div class="text-center py-8">
+                        <i class="fa fa-history text-gray-300 text-5xl mb-4"></i>
+                        <p class="text-gray-500">暂无执行记录</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-neutral text-white py-8 mt-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="mb-4 md:mb-0">
+                    <div class="flex items-center">
+                        <i class="fa fa-exchange text-primary text-2xl mr-2"></i>
+                        <span class="text-xl font-bold">虚拟资产自动兑换系统</span>
+                    </div>
+                    <p class="text-gray-400 mt-2 text-sm">智能管理您的虚拟资产，最大化兑换价值</p>
+                </div>
+                <div class="flex space-x-4">
+                    <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                        <i class="fa fa-github text-xl"></i>
+                    </a>
+                    <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                        <i class="fa fa-twitter text-xl"></i>
+                    </a>
+                    <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                        <i class="fa fa-linkedin text-xl"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="border-t border-gray-700 mt-6 pt-6 text-center text-gray-400 text-sm">
+                &copy; 2024 虚拟资产自动兑换系统. 保留所有权利.
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // 生成40个权益数据
+        function generateBenefits() {
+            const benefitTypes = ['购物券', '视频会员', '餐饮券', '酒店券', '机票券', '实物礼品', '服务券', '现金返还'];
+            const benefits = [];
+            
+            for (let i = 1; i <= 40; i++) {
+                const type = benefitTypes[Math.floor(Math.random() * benefitTypes.length)];
+                const faceValue = Math.floor(Math.random() * 200) + 10; // 10-200元
+                const useFrequency = Math.random(); // 0-1
+                const validDaysLeft = Math.floor(Math.random() * 60) + 1; // 1-60天
+                const requiredPoints = Math.floor(faceValue * (0.8 + Math.random() * 0.4)); // 80%-120%的面值积分
+                const stock = Math.floor(Math.random() * 100) + 1; // 1-100库存
+                
+                // 计算价值评分 (Vi)
+                const faceWeight = 0.6;
+                const useWeight = 0.3;
+                const validWeight = 0.1;
+                const valueScore = (faceWeight * faceValue) + (useWeight * useFrequency) + (validWeight * (validDaysLeft / 60));
+                
+                // 计算资产紧迫度 (Uj)
+                const urgency = 1 - (validDaysLeft / 60);
+                
+                // 计算兑换概率 (基于示例中的融合模型逻辑)
+                const dqnProb = 0.5 + (valueScore / 200); // 简化计算
+                const ppoProb = 0.5 + (urgency * 0.5); // 简化计算
+                const weight = (40 > 30) ? 0.4 : 0.6; // 基于权益数量的权重
+                const exchangeProb = (weight * dqnProb) + ((1 - weight) * ppoProb);
+                
+                benefits.push({
+                    id: i,
+                    name: `${type}${i}`,
+                    type,
+                    faceValue,
+                    useFrequency: useFrequency.toFixed(2),
+                    validDaysLeft,
+                    requiredPoints,
+                    stock,
+                    valueScore: valueScore.toFixed(2),
+                    urgency: urgency.toFixed(2),
+                    exchangeProb: Math.min(1, exchangeProb).toFixed(2),
+                    isHighValue: valueScore > 100,
+                    isExpiring: validDaysLeft < 7
+                });
+            }
+            
+            return benefits;
+        }
+        
+        // 渲染权益表格
+        function renderBenefitsTable(benefits, page = 1, itemsPerPage = 10) {
+            const startIndex = (page - 1) * itemsPerPage;
+            const endIndex = Math.min(startIndex + itemsPerPage, benefits.length);
+            const paginatedBenefits = benefits.slice(startIndex, endIndex);
+            
+            const tableBody = document.getElementById('benefits-table');
+            tableBody.innerHTML = '';
+            
+            paginatedBenefits.forEach(benefit => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50 transition-colors';
+                
+                // 确定行的背景色（高价值或即将过期）
+                if (benefit.isHighValue && benefit.isExpiring) {
+                    row.className += ' bg-yellow-50';
+                } else if (benefit.isHighValue) {
+                    row.className += ' bg-blue-50';
+                } else if (benefit.isExpiring) {
+                    row.className += ' bg-red-50';
+                }
+                
+                // 确定兑换概率的颜色
+                let probColorClass = 'text-gray-600';
+                if (benefit.exchangeProb >= 0.7) {
+                    probColorClass = 'text-green-600 font-semibold';
+                } else if (benefit.exchangeProb >= 0.4) {
+                    probColorClass = 'text-yellow-600 font-medium';
+                } else {
+                    probColorClass = 'text-red-600';
+                }
+                
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">B${benefit.id.toString().padStart(3, '0')}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-md flex items-center justify-center">
+                                ${getTypeIcon(benefit.type)}
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-sm font-medium text-gray-900">${benefit.name}</div>
+                                <div class="text-xs text-gray-500">价值: ${benefit.faceValue}元</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getTypeColor(benefit.type)}">
+                            ${benefit.type}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <div class="flex items-center">
+                            <div class="w-full bg-gray-200 rounded-full h-2 mr-2">
+                                <div class="bg-blue-600 h-2 rounded-full" style="width: ${Math.min(100, benefit.valueScore)}%"></div>
+                            </div>
+                            <span>${benefit.valueScore}</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${benefit.requiredPoints}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <div class="flex items-center">
+                            <span>${benefit.stock}</span>
+                            <div class="w-full bg-gray-200 rounded-full h-2 ml-2">
+                                <div class="bg-green-600 h-2 rounded-full" style="width: ${benefit.stock}%"></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${benefit.validDaysLeft < 7 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}">
+                            ${benefit.validDaysLeft}天
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm ${probColorClass}">
+                        ${(benefit.exchangeProb * 100).toFixed(0)}%
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button class="text-primary hover:text-primary/80 transition-colors exchange-btn" data-id="${benefit.id}">
+                            <i class="fa fa-exchange mr-1"></i> 兑换
+                        </button>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+            
+            // 更新分页信息
+            document.getElementById('showing-range').textContent = `${startIndex + 1}-${endIndex}`;
+            document.getElementById('total-count').textContent = benefits.length;
+            
+            // 更新分页按钮状态
+            document.getElementById('prev-page').disabled = page === 1;
+            document.getElementById('next-page').disabled = endIndex >= benefits.length;
+        }
+        
+        // 获取权益类型的图标
+        function getTypeIcon(type) {
+            const icons = {
+                '购物券': '<i class="fa fa-shopping-bag text-blue-500"></i>',
+                '视频会员': '<i class="fa fa-film text-red-500"></i>',
+                '餐饮券': '<i class="fa fa-cutlery text-yellow-500"></i>',
+                '酒店券': '<i class="fa fa-bed text-purple-500"></i>',
+                '机票券': '<i class="fa fa-plane text-teal-500"></i>',
+                '实物礼品': '<i class="fa fa-gift text-pink-500"></i>',
+                '服务券': '<i class="fa fa-wrench text-gray-500"></i>',
+                '现金返还': '<i class="fa fa-money text-green-500"></i>'
+            };
+            
+            return icons[type] || '<i class="fa fa-tag text-gray-500"></i>';
+        }
+        
+        // 获取权益类型的颜色
+        function getTypeColor(type) {
+            const colors = {
+                '购物券': 'bg-blue-100 text-blue-800',
+                '视频会员': 'bg-red-100 text-red-800',
+                '餐饮券': 'bg-yellow-100 text-yellow-800',
+                '酒店券': 'bg-purple-100 text-purple-800',
+                '机票券': 'bg-teal-100 text-teal-800',
+                '实物礼品': 'bg-pink-100 text-pink-800',
+                '服务券': 'bg-gray-100 text-gray-800',
+                '现金返还': 'bg-green-100 text-green-800'
+            };
+            
+            return colors[type] || 'bg-gray-100 text-gray-800';
+        }
+        
+        // 运行模拟
+        function runSimulation() {
+            const benefits = generateBenefits();
+            renderBenefitsTable(benefits);
+            
+            // 筛选前5个高概率兑换的权益
+            const topBenefits = [...benefits].sort((a, b) => b.exchangeProb - a.exchangeProb).slice(0, 5);
+            
+            // 计算最优策略
+            const optimalStrategy = calculateOptimalStrategy(benefits);
+            
+            // 更新最优策略展示
+            updateOptimalStrategy(optimalStrategy, topBenefits);
+            
+            // 生成决策分析图表
+            generateDecisionChart(benefits, topBenefits);
+            
+            // 添加执行记录
+            addExecutionRecord(optimalStrategy);
+            
+            // 更新用户资产信息
+            updateUserAssets(optimalStrategy);
+        }
+        
+        // 计算最优策略
+        function calculateOptimalStrategy(benefits) {
+            // 基于价值评分和兑换概率，选择最优的权益组合
+            // 这里简化为选择价值评分最高且兑换概率大于0.6的权益
+            const eligibleBenefits = benefits.filter(b => b.exchangeProb > 0.6);
+            
+            if (eligibleBenefits.length === 0) {
+                return {
+                    selected: null,
+                    reason: "没有符合条件的高价值权益",
+                    pointsUsed: 0,
+                    expectedValue: 0
+                };
+            }
+            
+            // 按价值评分排序
+            eligibleBenefits.sort((a, b) => b.valueScore - a.valueScore);
+            
+            // 选择前3个权益作为组合
+            const selectedBenefits = eligibleBenefits.slice(0, 3);
+            
+            return {
+                selected: selectedBenefits,
+                reason: "基于DQN-PPO融合模型计算的最优兑换策略",
+                pointsUsed: selectedBenefits.reduce((sum, b) => sum + b.requiredPoints, 0),
+                expectedValue: selectedBenefits.reduce((sum, b) => sum + b.faceValue, 0)
+            };
+        }
+        
+        // 更新最优策略展示
+        function updateOptimalStrategy(strategy, topBenefits) {
+            const strategyContainer = document.getElementById('optimal-strategy');
+            
+            if (!strategy.selected || strategy.selected.length === 0) {
+                strategyContainer.innerHTML = `
+                    <div class="text-center py-4">
+                        <i class="fa fa-exclamation-circle text-yellow-500 text-3xl mb-2"></i>
+                        <p class="text-gray-700">${strategy.reason}</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = `
+                <div class="font-medium text-neutral mb-2">推荐兑换策略</div>
+                <div class="space-y-3 mb-4">
+            `;
+            
+            strategy.selected.forEach(benefit => {
+                html += `
+                    <div class="flex justify-between items-center p-2 bg-white rounded-md shadow-sm">
+                        <div class="flex items-center">
+                            ${getTypeIcon(benefit.type)}
+                            <span class="ml-2">${benefit.name}</span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="text-sm text-gray-500 mr-2">${benefit.requiredPoints}积分</span>
+                            <span class="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full">
+                                价值${benefit.faceValue}元
+                            </span>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-500">预计消耗积分:</span>
+                    <span class="font-semibold">${strategy.pointsUsed}</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-500">预计获得价值:</span>
+                    <span class="font-semibold text-green-600">${strategy.expectedValue}元</span>
+                </div>
+            `;
+            
+            strategyContainer.innerHTML = html;
+            
+            // 更新模型信息
+            document.getElementById('model-type').textContent = "DQN+PPO融合";
+            document.getElementById('model-weight').textContent = "DQN: 40%, PPO: 60%";
+            document.getElementById('expected-return').textContent = `${strategy.expectedValue}元`;
+        }
+        
+        // 生成决策分析图表
+        function generateDecisionChart(allBenefits, topBenefits) {
+            const ctx = document.getElementById('decision-chart').getContext('2d');
+            
+            // 准备数据
+            const dqnData = allBenefits.map(b => b.exchangeProb * 100);
+            const ppoData = allBenefits.map(b => (0.5 + (parseFloat(b.urgency) * 0.5)) * 100);
+            const fusionData = allBenefits.map(b => parseFloat(b.exchangeProb) * 100);
+            
+            // 高亮前5个权益
+            const highlightIndices = topBenefits.map(b => b.id - 1);
+            
+            // 生成背景色数组
+            const backgroundColor = allBenefits.map((b, index) => 
+                highlightIndices.includes(index) ? 'rgba(59, 130, 246, 0.8)' : 'rgba(59, 130, 246, 0.2)'
+            );
+            
+            // 销毁旧图表（如果存在）
+            if (window.decisionChart) {
+                window.decisionChart.destroy();
+            }
+            
+            // 创建新图表
+            window.decisionChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: allBenefits.map(b => `B${b.id.toString().padStart(3, '0')}`),
+                    datasets: [
+                        {
+                            label: 'DQN策略',
+                            data: dqnData,
+                            backgroundColor: backgroundColor,
+                            borderColor: 'rgba(59, 130, 246, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'PPO策略',
+                            data: ppoData,
+                            backgroundColor: allBenefits.map((b, index) => 
+                                highlightIndices.includes(index) ? 'rgba(16, 185, 129, 0.8)' : 'rgba(16, 185, 129, 0.2)'
+                            ),
+                            borderColor: 'rgba(16, 185, 129, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: '融合策略',
+                            data: fusionData,
+                            backgroundColor: allBenefits.map((b, index) => 
+                                highlightIndices.includes(index) ? 'rgba(139, 92, 246, 0.8)' : 'rgba(139, 92, 246, 0.2)'
+                            ),
+                            borderColor: 'rgba(139, 92, 246, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            title: {
+                                display: true,
+                                text: '兑换概率 (%)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '权益ID'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.dataset.label || '';
+                                    const value = context.raw;
+                                    const benefit = allBenefits[context.dataIndex];
+                                    return [
+                                        `${label}: ${value.toFixed(0)}%`,
+                                        `权益名称: ${benefit.name}`,
+                                        `价值评分: ${benefit.valueScore}`,
+                                        `剩余天数: ${benefit.validDaysLeft}天`
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    animation: {
+                        duration: 2000,
+                        easing: 'easeOutQuart'
+                    }
+                }
+            });
+        }
+        
+        // 添加执行记录
+        function addExecutionRecord(strategy) {
+            const historyContainer = document.getElementById('execution-history');
+            
+            if (!strategy.selected || strategy.selected.length === 0) {
+                return;
+            }
+            
+            const now = new Date();
+            const timestamp = now.toLocaleString();
+            
+            let benefitsHtml = '';
+            strategy.selected.forEach(benefit => {
+                benefitsHtml += `
+                    <div class="flex items-center mb-2">
+                        <span class="w-20 text-gray-500">${benefit.name}:</span>
+                        <span class="font-medium">${benefit.requiredPoints}积分</span>
+                    </div>
+                `;
+            });
+            
+            const recordHtml = `
+                <div class="bg-neutral-light rounded-lg p-4 hover-scale transition-all">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="font-medium text-neutral">自动兑换执行成功</h3>
+                            <p class="text-sm text-gray-500">${timestamp}</p>
+                        </div>
+                        <div class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                            完成
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        ${benefitsHtml}
+                    </div>
+                    <div class="mt-3 flex justify-between text-sm">
+                        <span class="text-gray-500">总消耗积分:</span>
+                        <span class="font-semibold">${strategy.pointsUsed}</span>
+                    </div>
+                    <div class="mt-1 flex justify-between text-sm">
+                        <span class="text-gray-500">总获得价值:</span>
+                        <span class="font-semibold text-green-600">${strategy.expectedValue}元</span>
+                    </div>
+                </div>
+            `;
+            
+            // 如果是第一条记录，清空"暂无记录"提示
+            if (historyContainer.innerHTML.includes('暂无执行记录')) {
+                historyContainer.innerHTML = '';
+            }
+            
+            // 添加新记录到顶部
+            historyContainer.insertAdjacentHTML('afterbegin', recordHtml);
+        }
+        
+        // 更新用户资产信息
+        function updateUserAssets(strategy) {
+            const currentPoints = parseInt(document.getElementById('point-balance').textContent);
+            const newPoints = currentPoints - strategy.pointsUsed;
+            
+            // 更新积分余额
+            document.getElementById('point-balance').textContent = newPoints;
+            
+            // 更新其他统计信息
+            document.getElementById('high-value-count').textContent = Math.floor(Math.random() * 5) + 5;
+            document.getElementById('expiring-count').textContent = Math.floor(Math.random() * 3) + 2;
+            document.getElementById('exchange-efficiency').textContent = `${Math.floor(Math.random() * 10) + 70}%`;
+            
+            // 更新最后更新时间
+            const now = new Date();
+            document.getElementById('last-update').textContent = now.toLocaleString();
+        }
+        
+        // 页面初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 生成权益数据但不立即显示
+            const benefits = generateBenefits();
+            
+            // 初始化页面
+            renderBenefitsTable(benefits);
+            
+            // 绑定事件
+            document.getElementById('run-simulation').addEventListener('click', runSimulation);
+            
+            // 分页控制
+            document.getElementById('prev-page').addEventListener('click', function() {
+                const currentPage = parseInt(document.getElementById('showing-range').textContent.split('-')[0]) / 10;
+                if (currentPage > 1) {
+                    renderBenefitsTable(benefits, currentPage - 1);
+                }
+            });
+            
+            document.getElementById('next-page').addEventListener('click', function() {
+                const currentPage = parseInt(document.getElementById('showing-range').textContent.split('-')[0]) / 10 + 1;
+                const totalPages = Math.ceil(benefits.length / 10);
+                if (currentPage <= totalPages) {
+                    renderBenefitsTable(benefits, currentPage);
+                }
+            });
+            
+            // 清空历史记录
+            document.getElementById('clear-history').addEventListener('click', function() {
+                document.getElementById('execution-history').innerHTML = `
+                    <div class="text-center py-8">
+                        <i class="fa fa-history text-gray-300 text-5xl mb-4"></i>
+                        <p class="text-gray-500">暂无执行记录</p>
+                    </div>
+                `;
+            });
+            
+            // 搜索和筛选
+            document.getElementById('benefit-search').addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                const filteredBenefits = benefits.filter(benefit => 
+                    benefit.name.toLowerCase().includes(searchTerm) || 
+                    benefit.type.toLowerCase().includes(searchTerm)
+                );
+                renderBenefitsTable(filteredBenefits);
+            });
+            
+            document.getElementById('benefit-filter').addEventListener('change', function() {
+                const filter = this.value;
+                let filteredBenefits = [...benefits];
+                
+                switch(filter) {
+                    case 'high-value':
+                        filteredBenefits = benefits.filter(b => b.isHighValue);
+                        break;
+                    case 'expiring':
+                        filteredBenefits = benefits.filter(b => b.isExpiring);
+                        break;
+                    case 'recommended':
+                        filteredBenefits = [...benefits].sort((a, b) => b.exchangeProb - a.exchangeProb).slice(0, 10);
+                        break;
+                }
+                
+                renderBenefitsTable(filteredBenefits);
+            });
+            
+            // 兑换按钮点击事件（委派）
+            document.getElementById('benefits-table').addEventListener('click', function(e) {
+                if (e.target.closest('.exchange-btn')) {
+                    const btn = e.target.closest('.exchange-btn');
+                    const benefitId = parseInt(btn.getAttribute('data-id'));
+                    const benefit = benefits.find(b => b.id === benefitId);
+                    
+                    if (benefit) {
+                        // 创建模拟的兑换记录
+                        const strategy = {
+                            selected: [benefit],
+                            reason: "用户手动兑换",
+                            pointsUsed: benefit.requiredPoints,
+                            expectedValue: benefit.faceValue
+                        };
+                        
+                        addExecutionRecord(strategy);
+                        updateUserAssets(strategy);
+                        
+                        // 更新权益库存
+                        benefit.stock -= 1;
+                        renderBenefitsTable(benefits);
+                        
+                        // 显示成功提示
+                        alert(`成功兑换 ${benefit.name}，消耗 ${benefit.requiredPoints} 积分`);
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
